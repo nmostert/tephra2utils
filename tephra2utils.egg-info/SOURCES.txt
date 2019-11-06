@@ -1,0 +1,10 @@
+README.md
+setup.py
+tephra2utils/__init__.py
+tephra2utils/io.py
+tephra2utils/vis.py
+tephra2utils.egg-info/PKG-INFO
+tephra2utils.egg-info/SOURCES.txt
+tephra2utils.egg-info/dependency_links.txt
+tephra2utils.egg-info/not-zip-safe
+tephra2utils.egg-info/top_level.txt
