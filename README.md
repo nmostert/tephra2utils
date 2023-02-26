@@ -33,6 +33,8 @@ For now, this utility assumes that all points are in the same UTM zone. If the p
 
 ## Regular Grid Map Visualisation 
 
+![Example](https://github.com/nmostert/tephra2utils/blob/master/test.html "Example Grid Visualisation")
+
 The Python script `plot_reg_grid.py` takes in a CSV file of UTM coordinates and plots them on a world map using the folium package. 
 
 This script requires the following Python packages to be installed:
