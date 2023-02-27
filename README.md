@@ -88,3 +88,130 @@ This will read in the UTM coordinates from input.csv in UTM zone 10N, and genera
 ### Notes
 
 For now, this utility assumes that all points are in the same UTM zone. If the points span multiple UTM zones, it will break.
+
+## Tephra2 Batch Simulation Configuration Generator
+
+This Python script generates configurations for a Tephra2 simulation run. It takes an input file and generates a number of configurations (specified by the user) using the parameters in the input file.
+Prerequisites
+
+This script requires the following packages to be installed:
+
+* NumPy
+* Pandas
+
+### Usage
+
+The script can be run using the following command:
+
+```
+python tephra2_run_generator.py input_file runs output_file
+```
+
+where `input_file` is the name of the input file, `runs` is the number of configurations to generate, and `output_file` is the name of the output file to which the generated configurations will be written.
+
+The input file should contain lines of the format:
+
+```
+<PARAMETER_NAME> <fixed_value>
+```
+
+for a parameter that will remain constant for all runs, or
+
+```
+<PARAMETER_NAME> {<sample_function_name>} [<param_1>, <param_2>, ...]
+```
+
+where `<sample_function_name>` is a function defined in the script that generates a value for `<PARAMETER_NAME>`.
+
+The output file will contain a Pandas DataFrame with the generated configurations, of the format:
+
+```
+run,<param1>,<param2>,<param3>,...,<paramN>
+0,<value1>,<value2>,<value3>,...,<valueN>
+1,<value1>,<value2>,<value3>,...,<valueN>
+...
+```
+
+This can be passed directly into `tephra2_batch_runner.sh` for batch simulation runs.
+
+### Sampling Functions
+
+For now, the following functions are defined in the script:
+
+* `unif(a, b)`: Generates a random value between a and b using a uniform distribution.
+
+* `log_unif(a, b)`: Generates a random value between a and b using a logarithmic uniform distribution. 
+
+
+More will be added in time. Feel free to suggest additional functions.
+
+## Tephra2 Batch Simulation Script 
+
+This is a command line utility to run the Tephra2 volcanic ash dispersion model for multiple parameter sets specified in a CSV file.
+
+### Usage
+
+```
+tephra2_batch_runner.sh [-h] [-t TEHRA2_PATH] [-p PARAMETER_FILE] [-g GRID_FILE] [-w WIND_FILE] [-o OUTPUT_FILE_PREFIX]
+
+    -h: Display help message and exit.
+    -t TEHRA2_PATH: Path to the Tephra2 executable. Default is /usr/local/tephra2/tephra2.
+    -p PARAMETER_FILE: Path to the CSV file containing the parameter sets. Required.
+    -g GRID_FILE: Path to the grid file containing the UTM coordinates of the study area. Required.
+    -w WIND_FILE: Path to the wind file containing wind direction and speed data. Required.
+    -o OUTPUT_FILE_PREFIX: Prefix for the output files. Default is tephra2_output.
+```
+
+### Input
+
+
+#### Parameter file
+
+The parameter file should be a CSV file with the following format:
+
+```
+run,<param1>,<param2>,<param3>,...,<paramN>
+0,<value1>,<value2>,<value3>,...,<valueN>
+1,<value1>,<value2>,<value3>,...,<valueN>
+...
+```
+
+The first row should contain the names of the parameters. The first column should contain the string run, followed by the parameter names.
+
+The subsequent rows should contain the parameter values for each run, with the first column containing the run number (starting from 0).
+
+This file can be generated using the python script `tephra2_run_generator.py`. 
+
+#### Grid file
+
+The grid file should be a text file with UTM coordinates of the study area, in the following format:
+
+```
+<easting1> <northing1>
+<easting2> <northing2>
+...
+```
+
+#### Wind file
+
+The wind file should be a text file with wind direction and speed data, in the following format:
+
+```
+<direction1> <speed1>
+<direction2> <speed2>
+...
+```
+
+#### Output
+
+The utility generates one output file per run, with the name specified by the -o option, appended with `_run<run number>.txt`.
+
+Each output file contains the Tephra2 output for the corresponding run, in text format.
+
+### Example usage
+
+```
+tephra2_runner.sh -t /usr/local/tephra2/tephra2 -p parameter_file.csv -g grid_file.txt -w wind_file.txt -o tephra2_output
+```
+
+This runs Tephra2 with the parameters specified in `parameter_file.csv`, using the grid file `grid_file.txt` and wind file `wind_file.txt`, and saves the output in files named `tephra2_output_run0.txt`, `tephra2_output_run1.txt`, etc.
