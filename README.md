@@ -1,3 +1,12 @@
+# Tephra2 Utilities
+
+This is a collection of utilities for Tephra2 simulations. At present it contains four scripts:
+
+* `generate_utm_grid.py` generates a regularly spaced grid file for Tephra2 given UTM coordinates.
+* `plot_reg_grid.py` generates an html file showing the grid spacing.
+* `tephra2_run_generator.py` generates a csv file containing configurations for a batch Tephra2 simulation run with parameters generated using user-specified sample functions.
+* `tephra2_runner.sh` executes a batch of Tephra2 runs using the output from `tephra2_run_generator.py`
+
 ## Generate UTM Grid
 
 This script generates a regular grid of UTM coordinates given two opposite corners of a rectangle on a UTM grid and a regular spacing distance. It can be used to create a grid of UTM coordinates for various applications, such as in geospatial analysis and mapping.
@@ -33,13 +42,12 @@ For now, this utility assumes that all points are in the same UTM zone. If the p
 
 ## Regular Grid Map Visualisation 
 
-![Example](https://github.com/nmostert/tephra2utils/blob/master/test.html "Example Grid Visualisation")
+![plot_example](https://user-images.githubusercontent.com/34159030/221457523-967d75c3-dcab-4df2-9414-be54b6219e09.png)
 
 The Python script `plot_reg_grid.py` takes in a CSV file of UTM coordinates and plots them on a world map using the folium package. 
 
 This script requires the following Python packages to be installed:
 
-* `argparse`
 * `numpy`
 * `pandas`
 * `folium`
