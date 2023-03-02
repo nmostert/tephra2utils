@@ -123,6 +123,23 @@ for a parameter that will remain constant for all runs, or
 
 where `<sample_function_name>` is a function defined in the script that generates a value for `<PARAMETER_NAME>`.
 
+It is also possible to use the value of other parameters to calculate dependent parameters. To do this, use the pipe symbol (`|`) to reference the parameter. 
+For example:
+
+```
+<FIRST_PARAMETER> {<sample_function_name>} [<param_1>, <param_2>, |<OTHER_PARAMETER>|]
+<OTHER_PARAMETER> <fixed_value>
+```
+
+Here, `FIRST_PARAMETER` is calculated internally using the call
+
+```
+<sample_function_name>(<param_1>, <param_2>, <OTHER_PARAMETER>)
+```
+
+**NOTE: This functionality is limited, and will break if faced with cyclical or nested dependencies.**
+
+
 The output file will contain a Pandas DataFrame with the generated configurations, of the format:
 
 ```
@@ -142,8 +159,11 @@ For now, the following functions are defined in the script:
 
 * `log_unif(a, b)`: Generates a random value between a and b using a logarithmic uniform distribution. 
 
+* `trunc_lognorm(mean, std, max_val)`: Generates a random value using a lognormal distribution around `mean` and `std`, truncated at `max_val`. 
 
 More will be added in time. Feel free to suggest additional functions.
+
+It is also possible to add 
 
 ## Tephra2 Batch Simulation Script 
 
