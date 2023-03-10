@@ -1,0 +1,19 @@
+﻿Phase Type,Phase Duration,Following Quiesence,Description
+IntExp,42,2,"Intermittent Explosions, Dome destroyed"
+Eff+Exp,53,0,Intermittent explosions and dome collapses
+PlinanE,1,2,Plinian
+MajorE,1,0,SubPlinian
+IntExp,1371,1,Intermittent Explosions
+PlinanE,1,27,Another Plinian
+MajorE,1,0,SubPlinian
+IntExp,11,93,Intermittent Explosions
+IntExp,24,981,Intermittent Explosions
+IntExp,34,5,Intermittent Explosions
+IntExp,13,2,Intermittent Explosions
+Eff,3,13,Dome Building
+Eff,12,71,
+Eff,7,2,
+IntExp,22,33,"Intermittent Explosions, Dome destroyed"
+Eff+Exp,13,0,Dome building and collapse
+IntExp,4,27,Intermittent Explosions
+Eff+Exp,646,END,Dome building and collapse

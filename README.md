@@ -192,7 +192,6 @@ tephra2_batch_runner.sh [-h] [-t TEHRA2_PATH] [-p PARAMETER_FILE] [-g GRID_FILE]
 
 ### Input
 
-
 #### Parameter file
 
 The parameter file should be a CSV file with the following format:
@@ -243,3 +242,72 @@ tephra2_runner.sh -t /usr/local/tephra2/tephra2 -p parameter_file.csv -g grid_fi
 ```
 
 This runs Tephra2 with the parameters specified in `parameter_file.csv`, using the grid file `grid_file.txt` and wind file `wind_file.txt`, and saves the output in files named `tephra2_output_run0.txt`, `tephra2_output_run1.txt`, etc.
+
+## NetCDF to Tephra2 Converter
+
+This script is a utility for converting wind data in a netCDF file to Tephra2 format.
+Usage
+
+```
+usage: netcdf_to_tephra2.py [-h] [-a] netcdf_file output_file date [date ...]
+
+Utility for converting wind data in a netcdf file to Tephra2 format
+
+positional arguments:
+  netcdf_file        Path to the netcdf file containing wind data
+  output_file        Path/prefix for the output file/files
+  date               Date(s) to extract in yyyy-mm-dd format. Can be a single
+                     date, a date range (in the form of start_date:end_date), a
+                     list of dates separated by spaces, or a file containing a
+                     date on each line.
+
+optional arguments:
+  -h, --help         show this help message and exit
+  -a, --aggregate    If set, all files in the date range will be aggregated
+                     using the mean to a single output file.
+
+The script takes the following arguments:
+
+    netcdf_file: Path to the netCDF file containing wind data
+    output_file: Path/prefix for the output file/files
+    date: Date(s) to extract in yyyy-mm-dd format. Can be a single date, a date range (in the form of start_date:end_date), a list of dates separated by spaces, or a file containing a date on each line.
+    -a, --aggregate: If set, all files in the date range will be aggregated using the mean to a single output file.
+```
+
+To use the script, simply run it with the required arguments:
+
+```
+python netcdf_to_tephra2.py netcdf_file output_file date
+```
+
+For example, to convert wind data for January 1st, 2022 to Tephra2 format, you would run:
+
+```
+python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01
+```
+
+You can also specify a date range using the `start_date:end_date` syntax:
+
+```
+python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01:2022-01-10
+```
+
+To specify multiple dates, simply separate them with spaces:
+
+```
+python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01 2022-01-02 2022-01-03
+```
+
+You can also specify a file containing a list of dates, with one date per line:
+
+```
+python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file /path/to/dates.txt
+```
+
+Finally, if you want to aggregate all the files in a date range into a single file by calculating the mean, use the -a or --aggregate flag:
+
+```
+python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01:2022-01-10 -a
+```
+
+
