@@ -243,10 +243,12 @@ tephra2_runner.sh -t /usr/local/tephra2/tephra2 -p parameter_file.csv -g grid_fi
 
 This runs Tephra2 with the parameters specified in `parameter_file.csv`, using the grid file `grid_file.txt` and wind file `wind_file.txt`, and saves the output in files named `tephra2_output_run0.txt`, `tephra2_output_run1.txt`, etc.
 
+
 ## NetCDF to Tephra2 Converter
 
 This script is a utility for converting wind data in a netCDF file to Tephra2 format.
-Usage
+
+### Usage
 
 ```
 usage: netcdf_to_tephra2.py [-h] [-a] netcdf_file output_file date [date ...]
@@ -309,5 +311,4 @@ Finally, if you want to aggregate all the files in a date range into a single fi
 ```
 python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01:2022-01-10 -a
 ```
-
 

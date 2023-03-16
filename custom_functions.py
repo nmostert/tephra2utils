@@ -1,4 +1,26 @@
 import numpy as np
+import random
+from scipy.stats import lognorm, fisk, norm
+
+
+def unif(a, b):
+    uni = random.uniform(a, b)
+    return uni
+
+
+def log_unif(a, b):
+    uni = np.exp(random.uniform(np.log(a), np.log(b)))
+    return uni
+
+
+def trunc_lognorm(mean, std, max_val):
+    mu = np.log(mean ** 2 / np.sqrt(std ** 2 + mean ** 2))
+    sigma = np.sqrt(np.log(std ** 2 / mean ** 2 + 1))
+    sample = lognorm.rvs(s=sigma, scale=np.exp(mu), loc=0, size=1)
+    if sample > max_val:
+        return max_val
+    else:
+        return sample
 
 
 def mastin_mass(
@@ -30,7 +52,6 @@ def mastin_mass(
     particle_densities = []
 
     for i in range(int(part_steps)):
-        print(phi_slice)
         if phi_slice >= LITHIC_DIAMETER_THRESHOLD:
             mean_density = lithic_density
         elif phi_slice <= PUMICE_DIAMETER_THRESHOLD:
@@ -66,3 +87,5 @@ def pdf_grainsize(part_mean, part_sigma, part_max_grainsize, part_step_width):
                    / (2*part_sigma*part_sigma))
     func_rho = temp1 * temp2 * part_step_width
     return func_rho
+
+
