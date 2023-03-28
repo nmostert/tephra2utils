@@ -72,10 +72,8 @@ def read_ncdf(ncdf_file):
     """
     ds = xr.open_dataset(ncdf_file)
     df = ds.to_dataframe()
-    print(df.head())
 
     df = df["speed"].unstack(level=1)
-    print(df.head())
 
     # Parsing multiindex values to be dates and ints respectively
     new_tuples = df.index.map(
@@ -84,9 +82,7 @@ def read_ncdf(ncdf_file):
             int(x[1]),
         )
     )
-    print(df.head())
     df.index = pd.MultiIndex.from_tuples(new_tuples, names=["Time", "wind direction"])
-    print(df.head())
 
     # Aggregate to daily level (stacking and unstacking because multiindex)
     df = df.unstack(level=1).resample("D").mean().stack(level=1)
@@ -153,20 +149,26 @@ def extract_tephra2_wind_data(
     dates_list = parse_date_arg(dates)
     date_strings = [date.strftime("%Y-%m-%d") for date in dates_list]
 
+    # Hacking actual heights in here because I don't know how to get them from the
+    # netcdf. I work with what I get.
+    heights = pd.read_csv("heights.csv")
+
     # Extract wind data for each date in dates.
     wind_df_list = []
     for d in date_strings:
         # Select wind data for the given date and wind directions.
         wind_u = ncdf_df.loc[(d, 1), :]
         wind_v = ncdf_df.loc[(d, 2), :]
-        print(ncdf_df.head())
 
         # Compute wind speed and angle from the wind components.
         speed, angle = get_wind_speed_and_angle(wind_u, wind_v)
 
         # Create a DataFrame with the wind speed and angle data, indexed by
         # hour.
-        wind_df = pd.DataFrame({"Speed": speed, "Angle": angle}, index=range(1, 38))
+        wind_df = pd.DataFrame(
+            {"Height": heights.values[0], "Speed": speed, "Angle": angle},
+            index=range(1, 38),
+        )
         wind_df_list += [wind_df]
 
     return wind_df_list
@@ -287,12 +289,12 @@ def save_to_file(wind_df_list, date_list, output_file, aggregate=False):
             wind_df_list
         )
         filename = f"{output_file}_mean.csv"
-        df_mean.to_csv(filename, sep=" ", header=False)
+        df_mean.to_csv(filename, sep=" ", header=False, index=None)
     else:
         # Loop through each date and DataFrame and save to a separate file
         for date, df in zip(date_strings, wind_df_list):
             filename = f"{output_file}_{date}.csv"
-            df.to_csv(filename, sep=" ", header=False)
+            df.to_csv(filename, sep=" ", header=False, index=None)
 
 
 def main():

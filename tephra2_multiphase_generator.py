@@ -147,11 +147,11 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
 
             phase_days = phase_length.days
 
-            base_run = common_utils.generate_runs(phase_conf)
+            base_run = common_utils.generate_runs(phase_conf).copy
 
             while phase_day < phase_end:
                 bangs += 1
-                run_df = base_run.copy()
+                run_df = base_run
                 run_df.insert(0, "PHASE_TYPE", [phase_type])
                 run_df.insert(0, "PHASE", [i])
                 run_df.insert(0, "DATE", [phase_day.strftime("%Y-%m-%d")])

@@ -171,8 +171,6 @@ For now, the following functions are defined in the script:
 
 More will be added in time. Feel free to suggest additional functions.
 
-It is also possible to add 
-
 ## Tephra2 Batch Simulation Script 
 
 This is a command line utility to run the Tephra2 volcanic ash dispersion model for multiple parameter sets specified in a CSV file.
@@ -279,7 +277,7 @@ The script takes the following arguments:
 To use the script, simply run it with the required arguments:
 
 ```
-python netcdf_to_tephra2.py netcdf_file output_file date
+python netcdf_to_tephra2.py <netcdf_file> <output_file> <date>
 ```
 
 For example, to convert wind data for January 1st, 2022 to Tephra2 format, you would run:
@@ -311,4 +309,73 @@ Finally, if you want to aggregate all the files in a date range into a single fi
 ```
 python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01-01:2022-01-10 -a
 ```
+
+## Tephra2 Multiphase Config Generator
+
+This script generates Tephra2 input configurations for a multiphase eruption scenario.
+
+### Usage
+```
+usage: tephra2_multiphase_generator.py [-h] [-o OUTPUT] [-q | -v | -d]
+                                       config_file phase_config_dir wind_file start_date
+
+Generate Tephra2 input files for multiple eruption phases.
+
+positional arguments:
+  config_file           path to the multiphase configuration file. The file should have
+                        columns for phase type,
+                        duration, following quiescence, and description.
+  phase_config_dir      path to the directory containing the config templates for the
+                        eruption types specified in the "Type" column of the
+                        config_file. The file should have columns for phase type,
+                        duration, following quiescence, and description.
+  wind_file             path to the .net pdf wind file from which to extract wind files
+                        for each eruption.
+  start_date            starting date in YYYY-MM-DD format. This is the date at which
+                        phase 0 in the eruption begins.
+                        The dates for subsequent eruptions are calculated based on the
+                        total durations and quiescences of preceding eruptions.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        output directory path. If not specified, the output will be
+                        written to the current working directory.
+  -q, --quiet           Suppress all output
+  -v, --verbose         Enable verbose output
+  -d, --debug           Enable debug output
+```
+
+#### Multiphase configuration file
+The phases of the eruption are described by the user using the `<config_file>` argument, which is the path to a .csv file. Each line descibes a single phase of the eruption sequence. The columns of the file are expected to be as follows:
+
+- `Phase Type`: The eruption style of the phase. This text must correspond exactly with the filename (without extension) of one of the phase configuration files in the `<phase_config_dir>` directory.
+- `Duration`: The duration (in days) of the phase.
+- `Following Quiescence`: The duration (in days) of the quiescent period before the next phase.
+- `Description`: An optional column containing descriptive text.
+
+Here is an example of a valid phase configuration file contents:
+
+Phase Type | Phase Duration| Following Quiescence|   Description
+---|---|---|---
+IntExp|42|2|Intermittent Explosions, Dome destroyed
+Eff+Exp|53|0|Intermittent explosions and dome collapses
+PlinianE|1|2|Plinian Eruption
+MajorE|1|0|SubPlinian Eruption
+
+#### Phase Types
+
+Each phase type must have a Tephra2 configuration file. By default some example phase configs are supported. 
+
+Phases can be categorised into two distinct groups, namely "single-bang" and "multi-bang"
+
+- "single-bang" phases consist of a single large eruptive event that can be stretched over multiple days. 
+- "multi-bang" phases consist of multiple smaller eruptions that all form part of a larger eruptive phase. 
+
+**"single-bang"** events can be described using a single generic Tephra2 configuration file, using the sampling syntax described [here](#parameter-file).
+
+
+
+
+
 
