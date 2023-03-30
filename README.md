@@ -104,8 +104,8 @@ Prerequisites
 
 This script requires the following packages to be installed:
 
-* NumPy
-* Pandas
+* `numpy`
+* `pandas`
 
 ### Usage
 
@@ -116,6 +116,9 @@ python tephra2_run_generator.py input_file runs output_file
 ```
 
 where `input_file` is the name of the input file, `runs` is the number of configurations to generate, and `output_file` is the name of the output file to which the generated configurations will be written.
+
+
+#### Configuration file syntax
 
 The input file should contain lines of the format:
 
@@ -314,7 +317,15 @@ python netcdf_to_tephra2.py /path/to/netcdf/file.nc /path/to/output/file 2022-01
 
 This script generates Tephra2 input configurations for a multiphase eruption scenario.
 
+This script requires the following packages to be installed:
+
+* `numpy`
+* `pandas`
+* `scipy`
+
+
 ### Usage
+
 ```
 usage: tephra2_multiphase_generator.py [-h] [-o OUTPUT] [-q | -v | -d]
                                        config_file phase_config_dir wind_file start_date
@@ -347,6 +358,7 @@ optional arguments:
 ```
 
 #### Multiphase configuration file
+
 The phases of the eruption are described by the user using the `<config_file>` argument, which is the path to a .csv file. Each line descibes a single phase of the eruption sequence. The columns of the file are expected to be as follows:
 
 - `Phase Type`: The eruption style of the phase. This text must correspond exactly with the filename (without extension) of one of the phase configuration files in the `<phase_config_dir>` directory.
@@ -372,10 +384,121 @@ Phases can be categorised into two distinct groups, namely "single-bang" and "mu
 - "single-bang" phases consist of a single large eruptive event that can be stretched over multiple days. 
 - "multi-bang" phases consist of multiple smaller eruptions that all form part of a larger eruptive phase. 
 
-**"single-bang"** events can be described using a single generic Tephra2 configuration file, using the sampling syntax described [here](#parameter-file).
+**"single-bang"** events can be described using a single generic Tephra2 configuration file, using the sample function syntax described [here](#configuration-file-syntax). When spanning multiple days, the total eruptive mass of these eruptions are divided equally and simulated as separate eruptions. The results can be aggregated to obtain the full eruption phase
 
+**"multi-bang"** eruptions consist of multiple distinct eruptions that all form a part of the same eruptive phase. The discrete paroxysms of multi-bang need to be modelled This introduces complexity that cannot be described by the sample syntax alone (yet), and must be accounted for in the code.
 
+##### Multi-bang phase types
 
+At this stage, two multi-bang eruption types are supported: continuous and intermittent. 
 
+###### Continuous Eruptions
+In the script input, these phases are labelled `Cont`, which points to the file `Cont.conf`.
 
+Continuous explosions are typically strombolian eruptions: a long, lasting series of very close (in time) small explosions that cause negligible deposition beyond the erupting vent. These are punctuated by paroxysms (larger explosions) within the event. Data from Etna volcano show the repose (duration between events) can be modelled using a log-normal distribution (location = 2.371)
+The first day starts with a paroxysm, and subsequent explosions are controlled by the duration:
 
+```
+day = 1
+while day < phase duration:
+	paroxysm on day
+	repose = ceil(exp(2.37 + randN())
+
+	day = day + repose
+```
+
+###### Intermittent explosions
+In the script input, these phases are labelled `IntExp`, which points to the file `IntExp.conf`.
+
+Intermittent explosions are discrete explosions, typically vulcanian, that inject a certain amount of ash into the atmosphere. The repose (in ours) is approximated using the log-logistic survivor function of Connor et al, with a k = 4 and mean corresponding to the number of explosions per day:
+
+```
+day = 1
+While day < phase duration:
+	paroxysm on day
+    repose = ceil(fisk.rvs(k, nexplosions_per_day, 1)/24)
+
+    day = day + repose
+```
+
+Here, `nexplosions_per_day` may be 10^(N(-0.4772,1.92)).
+
+Fisk is in `scipy` – and is the log-logistic survivor function.
+
+### Output
+This script outputs a .csv file with the following columns:
+
+```
+<DATE>,<PHASE>,<PHASE_TYPE>,<T2_PARAM_1>,<T2_PARAM_2>,...,<T2_PARAM_N>
+```
+
+These columns are the eruption date (used for obtaining the wind data), the phase number (used to group multiple eruptions of a single phase), the phase type as described above, and the Tephra2 parameters to be used for simulation. This file can then be used as input for `tephra2_multiphase_runner.py`. 
+
+## Tephra2 Multiphase Runner Script
+The script performs a multi phase eruption simulation using Tephra2. 
+
+This script requires the following packages to be installed:
+
+* `numpy`
+* `pandas`
+* `scipy`
+* `h5py`
+* `subprocess`
+* `multiprocessing`
+
+### Usage
+
+```
+usage: tephra2_multiphase_runner.py [-h] [-q | -v | -d]
+                                    multiphase_config_file netcdf_file grid_file
+                                    tephra2_path out_file
+
+Run Tephra2 using a multiphase configuration file.
+
+positional arguments:
+  multiphase_config_file
+                        Filename of multiphase configuration file. This file can be
+                        generated using the script tephra2_multiphase_generator.py
+  netcdf_file           NetCDF file containing wind data
+  grid_file             Grid file. This file can be generated using the script
+                        generate_utm_grid.py
+  tephra2_path          Path to Tephra2 executable
+  out_file              Output filename. File will be saved to the HDF format with the
+                        filename <output_filename>.h5
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -q, --quiet           Suppress all output
+  -v, --verbose         Enable verbose output
+  -d, --debug           Enable debug output
+```
+
+### Output
+
+The script writes an output file into a Hierarchical Data Format (HDF), specifically HDF5, and saves it with the .h5 extension. HDF5 works with a directory-style structure, where "datasets" are like files, and "groups" are like folders. Each object (group or dataset) can be assigned metadata, which can include links to other objects. 
+
+In our case, the file has the following structure:
+
+```
+├── sim/                        # simulation group
+│   ├── sim_1                       # simulation dataset
+│   │   |-- <phase>                     # phase number metadata
+│   │   |-- <phase_type>                # phase type metadata
+│   │   |-- <date_1>                    # eruption date metadata
+│   │   |---> [wind_<date_1>]           # metadata link to wind
+│   │   |---> [config_1]                # metadata link to config
+│   ├── sim_2
+│   └── ...
+├── wind/                       # wind group
+│   ├── wind_<date_1>               # wind dataset
+│   ├── wind_<date_2>
+│   ├── wind_<date_2>
+│   └── ...
+├── config/                     # configuration group
+│   ├── config_1
+│   ├── config_2
+│   └── ...
+└── grid                        # grid points dataset
+```
+
+The data structure can be accessed using a tool such as HDFView, or using API bindings available in many programming languages. 
