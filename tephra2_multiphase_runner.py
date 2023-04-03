@@ -39,7 +39,7 @@ def validate_input_files(multiphase_config_file, netcdf_file, grid_file, tephra2
 
 
 def export_to_hdf(
-    output_df_list, config_file_list, wind_file_list, grid_file, out_file
+    output_df_list, config_file_list, wind_file_list, grid_file, out_file, phases
 ):
     """Export Tephra2 simulations to binary HDF (.h5) format.
 
@@ -93,28 +93,112 @@ def export_to_hdf(
         dtype=np.float64,
     )
     grid_rec_arr = grid_df.to_records(index=False)
-    f.create_dataset("grid_file", data=grid_rec_arr)
+    f.create_dataset("grid", data=grid_rec_arr)
 
     logging.info("Exporting simulation input and output data")
     sim_group = f.create_group("sims")
     config_group = f.create_group("configs")
     i = 0
-    for date, config_file, output_df in zip(
-        date_list, config_file_list, output_df_list
+    for date, config_file, output_df, phase in zip(
+        date_list, config_file_list, output_df_list, phases
     ):
         i += 1
         logging.debug(f"Writing config data for Sim {i} on {date}")
         config_df = pd.read_csv(config_file, sep="\t", index_col=0, names=[None, 0]).T
         config_rec_arr = config_df.to_records(index=False)
-        config_group.create_dataset(f"config_{i}", data=config_rec_arr)
+        config_dset = config_group.create_dataset(f"config_{i}", data=config_rec_arr)
+        os.remove(config_file)
+
+        config_ref = config_dset.ref
+        wind_ref = wind_group[f"wind_{date}"].ref
 
         logging.debug(f"Writing output data for Sim {i} on {date}")
         for col in output_df:
             output_df[col] = pd.to_numeric(output_df[col], errors="raise")
         output_rec_arr = output_df.to_records(index=False)
-        sim_group.create_dataset(f"sim_{i}", data=output_rec_arr)
+        sim_dset = sim_group.create_dataset(f"sim_{i}", data=output_rec_arr)
+        sim_dset.attrs.create("phase", phase[0])
+        sim_dset.attrs.create("phase type", phase[1])
+        sim_dset.attrs["date"] = date
+        sim_dset.attrs["wind"] = wind_ref
+        sim_dset.attrs["config"] = config_ref
 
+    f.close()
     logging.info("Export success. Exiting.")
+
+
+def generate_tree_hdf5(hdf5_path):
+
+    def _print_tree(node, indent="", last=True):
+        if isinstance(node, h5py.File):
+            name = node.filename
+            print(f"{indent}{name}")
+            children = [_ for _ in node.values()]
+            for i, child in enumerate(children):
+                _print_tree(child, indent="", last=(i == len(children) - 1))
+        else:
+            name = node.name.split("/")[-1]
+            if isinstance(node, h5py.Dataset):
+                shape = str(node.shape)
+                if node.attrs:
+                    attrs = " [ATTRS]"
+                else:
+                    attrs = ""
+                if last:
+                    print(f"{indent}┗━━ {name} {shape}{attrs}")
+                else:
+                    print(f"{indent}┣━━ {name} {shape}{attrs}")
+                for key, val in list(node.attrs.items()):
+                    if isinstance(val, h5py.Reference):
+                        value = h5py.h5r.get_name(val, node.id).decode("utf-8")
+                        ref_char = ">"
+                    else:
+                        value = val
+                        ref_char = "─"
+                    connector = (
+                        f"└─{ref_char}"
+                        if key == list(node.attrs.items())[-1][0]
+                        else f"├─{ref_char}"
+                    )
+                    print(
+                        f"{indent}{'┃' if not last else ''}   {connector} {key}:"
+                        f" {value}"
+                    )
+            else:
+                if node.attrs:
+                    attrs = " [ATTRS]"
+                else:
+                    attrs = ""
+                if last:
+                    print(f"{indent}┗━━ {name}{attrs}")
+                else:
+                    print(f"{indent}┣━━ {name}{attrs}")
+                for key, val in list(node.attrs.items()):
+                    if isinstance(val, h5py.Reference):
+                        value = h5py.h5r.get_name(val, node.id).decode("utf-8")
+                        ref_char = ">"
+                    else:
+                        value = val
+                        ref_char = "─"
+                    connector = (
+                        f"└─{ref_char}"
+                        if key == list(node.attrs.items())[-1][0]
+                        else f"├─{ref_char}"
+                    )
+                    print(
+                        f"{indent}{'┃' if not last else ''}   {connector} {key}:"
+                        f" {value}"
+                    )
+                children = [_ for _ in node.values()]
+                for i, child in enumerate(children):
+                    _print_tree(
+                        child,
+                        indent=(indent + ("    " if last else "┃   ")),
+                        last=(i == len(children) - 1),
+                    )
+
+    with h5py.File(f"{hdf5_path}.h5", "r") as f:
+        _print_tree(f)
 
 
 def extract_tephra2_wind(multiphase_config_file, netcdf_file):
@@ -269,6 +353,7 @@ def main():
     wind_file_list = []
     config_file_list = []
     dates_list = []
+    phase_list = []
     phase_type_list = []
 
     temp_dir = ".temp"
@@ -284,6 +369,7 @@ def main():
         date, phase, phase_type, *tephra2_params = line.split(",")
 
         dates_list += [date]
+        phase_list += [phase]
         phase_type_list += [phase_type]
 
         # Check if wind file already exists.
@@ -358,7 +444,7 @@ def main():
             output[1:],
             columns=output[0],
         )
-        res_df.replace('', np.nan)
+        res_df.replace("", np.nan)
         res_df_list += [res_df]
 
     export_to_hdf(
@@ -367,9 +453,12 @@ def main():
         wind_file_list,
         args.grid_file,
         args.out_file,
+        zip(phase_list, phase_type_list),
     )
 
     shutil.rmtree(temp_dir)
+
+    # generate_tree_hdf5(args.out_file)
 
 
 if __name__ == "__main__":

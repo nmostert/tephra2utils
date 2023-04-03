@@ -16,7 +16,7 @@ df = pd.read_csv("wind_data.csv")
 
 heights = df[["level", "height"]].groupby(['level']).mean()
 
-print(heights['height'].head())
+print(heights['height'])
 
 heights['height'].to_csv("heights.csv", index=False, header=None)
 

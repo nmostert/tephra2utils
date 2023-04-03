@@ -475,26 +475,25 @@ optional arguments:
 
 ### Output
 
-The script writes an output file into a Hierarchical Data Format (HDF), specifically HDF5, and saves it with the .h5 extension. HDF5 works with a directory-style structure, where "datasets" are like files, and "groups" are like folders. Each object (group or dataset) can be assigned metadata, which can include links to other objects. 
+The script writes an output file into a Hierarchical Data Format (HDF), specifically HDF5, and saves it with the .h5 extension. HDF5 works with a directory-style structure, where "datasets" are like files, and "groups" are like folders. Each object (group or dataset) can be assigned metadata, which can include references to other objects. 
 
 In our case, the file has the following structure:
 
 ```
-├── sim/                        # simulation group
+├── sims/                       # simulation group
 │   ├── sim_1                       # simulation dataset
 │   │   |-- <phase>                     # phase number metadata
 │   │   |-- <phase_type>                # phase type metadata
 │   │   |-- <date_1>                    # eruption date metadata
-│   │   |---> [wind_<date_1>]           # metadata link to wind
-│   │   |---> [config_1]                # metadata link to config
+│   │   |---> [wind_<date_1>]           # metadata reference to wind
+│   │   |---> [config_1]                # metadata reference to config
 │   ├── sim_2
 │   └── ...
 ├── wind/                       # wind group
 │   ├── wind_<date_1>               # wind dataset
 │   ├── wind_<date_2>
-│   ├── wind_<date_2>
 │   └── ...
-├── config/                     # configuration group
+├── configs/                    # configuration group
 │   ├── config_1
 │   ├── config_2
 │   └── ...
@@ -502,3 +501,6 @@ In our case, the file has the following structure:
 ```
 
 The data structure can be accessed using a tool such as HDFView, or using API bindings available in many programming languages. 
+
+
+

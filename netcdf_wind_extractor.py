@@ -151,7 +151,7 @@ def extract_tephra2_wind_data(
 
     # Hacking actual heights in here because I don't know how to get them from the
     # netcdf. I work with what I get.
-    heights = pd.read_csv("heights.csv")
+    heights = pd.read_csv("heights.csv", header=None)
 
     # Extract wind data for each date in dates.
     wind_df_list = []
@@ -166,7 +166,7 @@ def extract_tephra2_wind_data(
         # Create a DataFrame with the wind speed and angle data, indexed by
         # hour.
         wind_df = pd.DataFrame(
-            {"Height": heights.values[0], "Speed": speed, "Angle": angle},
+            {"Height": heights.values[:, 0], "Speed": speed, "Angle": angle},
             index=range(1, 38),
         )
         wind_df_list += [wind_df]
