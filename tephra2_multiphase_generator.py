@@ -93,7 +93,7 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
         )
         bangs = 0
         if phase_type == "IntExp":
-            nexpday = exp_per_day(-0.4772, 1.92)
+            nexpday = exp_per_day(-0.4772, 1.92)  # Hardcoded K
 
             phase_day = phase_start
 
@@ -122,7 +122,7 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
 
             while phase_day < phase_end:
                 bangs += 1
-                repose = cont_repose(2.37)
+                repose = cont_repose(2.37)  # Hardcoded k value for Cont. eruptions
                 run_df = common_utils.generate_runs(phase_conf)
                 run_df.insert(0, "PHASE_TYPE", [phase_type])
                 run_df.insert(0, "PHASE", [i])
@@ -147,11 +147,10 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
 
             phase_days = phase_length.days
 
-            base_run = common_utils.generate_runs(phase_conf).copy
-
+            base_run = common_utils.generate_runs(phase_conf)
             while phase_day < phase_end:
                 bangs += 1
-                run_df = base_run
+                run_df = base_run.copy()
                 run_df.insert(0, "PHASE_TYPE", [phase_type])
                 run_df.insert(0, "PHASE", [i])
                 run_df.insert(0, "DATE", [phase_day.strftime("%Y-%m-%d")])
@@ -172,8 +171,11 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
         logging.info(
             f"\nDONE. Generated {bangs} bangs over {dur} days."
             "\n"
-            f"\n........QUIESCENT for {qui} days........"
         )
+        if qui != "END":
+            logging.info(
+                f"\n........QUIESCENT for {qui} days........"
+            )
     logging.info("Preparing dataframe for export...")
     ret_df = pd.concat(event_list, axis=0)
     logging.info("DONE.")

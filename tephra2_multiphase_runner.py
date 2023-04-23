@@ -420,7 +420,7 @@ def main():
         input_list += [param_tuple]
 
     total_elapsed_time = time.time() - total_start_time
-    num_processes = mp.cpu_count()
+    num_processes = mp.cpu_count()  # todo use OMP_NUM_THREADS env variable.
     logging.info("DONE")
     logging.info(
         f"{i} Tephra2 configurations prepared in a total of"
@@ -458,7 +458,7 @@ def main():
 
     shutil.rmtree(temp_dir)
 
-    # generate_tree_hdf5(args.out_file)
+    generate_tree_hdf5(args.out_file)
 
 
 if __name__ == "__main__":

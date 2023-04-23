@@ -139,3 +139,9 @@ node_
 
 # Gutentags tag file for Vim
 tags
+
+# Data files for this project
+*.h5
+*.csv
+*.dat
+*.html
