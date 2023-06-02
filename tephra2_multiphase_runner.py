@@ -54,10 +54,9 @@ def export_to_hdf(
 
     """
 
-    logging.info(f"Exporting data to {out_file}.h5 ...")
-    f = h5py.File(f"{out_file}.h5", "w")
-
-    wind_group = f.create_group("wind")
+    filename = f"{out_file}_phase{int(phases[0]):03d}.h5"
+    logging.info(f"Exporting data to {filename} ...")
+    f = h5py.File(filename, "w")
 
     # Extract non-unique dates from wind filenames
     date_list = [
@@ -68,9 +67,13 @@ def export_to_hdf(
     wind_file_list = list(set(wind_file_list))
     wind_col_names = ["Elevation", "Speed", "Direction"]
     logging.info(f"Exporting wind data between {date_list[0]} and {date_list[-1]}")
+    wind_group = f.create_group("wind")
+    unique_dates = []
     for wind_file in wind_file_list:
         # Extract unique date for wind entry
         wind_date = re.search(r"(\d{4}-\d{2}-\d{2})", wind_file).group()
+        # Save the unique dates for later
+        unique_dates += [wind_date]
         # Read wind csv into dataframe
         wind_df = pd.read_csv(wind_file, sep=" ", names=wind_col_names, header=None)
         logging.debug(f"Writing wind data for {wind_date}")
@@ -78,8 +81,8 @@ def export_to_hdf(
         wind_rec_arr = wind_df.to_records(index=False)
         # Insert wind into HDF table
         wind_group.create_dataset(f"wind_{wind_date}", data=wind_rec_arr)
-        # Delete wind temp file
-        os.remove(wind_file)
+        # Delete wind temp file ACTUALLY DON'T DO THIS i think
+        # os.remove(wind_file)
 
     # Just adding the grid file to root because we only use one.
     logging.info("Exporting simulation grid coordinates")
@@ -99,106 +102,71 @@ def export_to_hdf(
     sim_group = f.create_group("sims")
     config_group = f.create_group("configs")
     i = 0
-    for date, config_file, output_df, phase in zip(
-        date_list, config_file_list, output_df_list, phases
-    ):
-        i += 1
-        logging.debug(f"Writing config data for Sim {i} on {date}")
-        config_df = pd.read_csv(config_file, sep="\t", index_col=0, names=[None, 0]).T
-        config_rec_arr = config_df.to_records(index=False)
-        config_dset = config_group.create_dataset(f"config_{i}", data=config_rec_arr)
-        os.remove(config_file)
+    intervals = None
+    # Aggregate by day.
+    # This doesn't work for any other time resolution.
+    for date in unique_dates:
+        # find indexes of all dates in date_list that are like date.
+        date_idxs = [i for i in range(len(date_list)) if date_list[i] == date]
+        logging.debug(f"Aggregating all simulations for {date}")
+        agg_df = None
+        config_refs_in_phase = []
+        for di in date_idxs:
+            i += 1
+            output_df = output_df_list[di]
+            config_file = config_file_list[di]
 
-        config_ref = config_dset.ref
-        wind_ref = wind_group[f"wind_{date}"].ref
+            wind_ref = wind_group[f"wind_{date}"].ref
+            logging.debug(f"Writing config data for Sim {i} on {date}")
+            config_df = pd.read_csv(
+                config_file, sep="\t", index_col=0, names=[None, 0]
+            ).T
+            config_rec_arr = config_df.to_records(index=False)
+            config_dset = config_group.create_dataset(
+                f"config_{i}", data=config_rec_arr
+            )
+            config_dset.attrs.create("phase", phases[0])
+            config_dset.attrs.create("phase type", phases[1])
+            config_dset.attrs["date"] = date
+            config_dset.attrs["wind"] = wind_ref
+            os.remove(config_file)
+            config_ref = config_dset.ref
+            config_refs_in_phase += [config_ref]
+            logging.debug(f"Aggregating data for Sim {i} on {date}")
+            for col in output_df:
+                output_df[col] = pd.to_numeric(output_df[col], errors="raise")
+            if agg_df is None:
+                agg_df = output_df
+            else:
+                if intervals is None:
+                    # Find all phi class columns
+                    intervals = agg_df.filter(
+                        regex=(
+                            r"\[[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?->[-+]?[0-9]*"
+                            + r"\.?[0-9]+(?:[eE][-+]?[0-9]+)?\)"
+                        )
+                    ).columns.tolist()
+                # aggregate phi_class columns
+                agg_df[intervals] = agg_df[intervals].add(output_df[intervals])
 
-        logging.debug(f"Writing output data for Sim {i} on {date}")
-        for col in output_df:
-            output_df[col] = pd.to_numeric(output_df[col], errors="raise")
-        output_rec_arr = output_df.to_records(index=False)
-        sim_dset = sim_group.create_dataset(f"sim_{i}", data=output_rec_arr)
-        sim_dset.attrs.create("phase", phase[0])
-        sim_dset.attrs.create("phase type", phase[1])
+                # normalise all phi class columns to add up to 100
+                agg_df[intervals] = (
+                    agg_df[intervals].div(agg_df[intervals].sum(axis=1), axis=0) * 100
+                )
+
+                # aggregate mass in mass/area column
+                agg_df["Kg/m^2"] = agg_df["Kg/m^2"].add(output_df["Kg/m^2"])
+
+        agg_rec_arr = agg_df.to_records(index=False)
+
+        logging.debug(f"Writing aggregated output data for {date}")
+        sim_dset = sim_group.create_dataset(f"sim_{i}", data=agg_rec_arr)
+        sim_dset.attrs.create("phase", phases[0])
+        sim_dset.attrs.create("phase type", phases[1])
         sim_dset.attrs["date"] = date
         sim_dset.attrs["wind"] = wind_ref
-        sim_dset.attrs["config"] = config_ref
-
     f.close()
     logging.info("Export success. Exiting.")
-
-
-def generate_tree_hdf5(hdf5_path):
-
-    def _print_tree(node, indent="", last=True):
-        if isinstance(node, h5py.File):
-            name = node.filename
-            print(f"{indent}{name}")
-            children = [_ for _ in node.values()]
-            for i, child in enumerate(children):
-                _print_tree(child, indent="", last=(i == len(children) - 1))
-        else:
-            name = node.name.split("/")[-1]
-            if isinstance(node, h5py.Dataset):
-                shape = str(node.shape)
-                if node.attrs:
-                    attrs = " [ATTRS]"
-                else:
-                    attrs = ""
-                if last:
-                    print(f"{indent}┗━━ {name} {shape}{attrs}")
-                else:
-                    print(f"{indent}┣━━ {name} {shape}{attrs}")
-                for key, val in list(node.attrs.items()):
-                    if isinstance(val, h5py.Reference):
-                        value = h5py.h5r.get_name(val, node.id).decode("utf-8")
-                        ref_char = ">"
-                    else:
-                        value = val
-                        ref_char = "─"
-                    connector = (
-                        f"└─{ref_char}"
-                        if key == list(node.attrs.items())[-1][0]
-                        else f"├─{ref_char}"
-                    )
-                    print(
-                        f"{indent}{'┃' if not last else ''}   {connector} {key}:"
-                        f" {value}"
-                    )
-            else:
-                if node.attrs:
-                    attrs = " [ATTRS]"
-                else:
-                    attrs = ""
-                if last:
-                    print(f"{indent}┗━━ {name}{attrs}")
-                else:
-                    print(f"{indent}┣━━ {name}{attrs}")
-                for key, val in list(node.attrs.items()):
-                    if isinstance(val, h5py.Reference):
-                        value = h5py.h5r.get_name(val, node.id).decode("utf-8")
-                        ref_char = ">"
-                    else:
-                        value = val
-                        ref_char = "─"
-                    connector = (
-                        f"└─{ref_char}"
-                        if key == list(node.attrs.items())[-1][0]
-                        else f"├─{ref_char}"
-                    )
-                    print(
-                        f"{indent}{'┃' if not last else ''}   {connector} {key}:"
-                        f" {value}"
-                    )
-                children = [_ for _ in node.values()]
-                for i, child in enumerate(children):
-                    _print_tree(
-                        child,
-                        indent=(indent + ("    " if last else "┃   ")),
-                        last=(i == len(children) - 1),
-                    )
-
-    with h5py.File(f"{hdf5_path}.h5", "r") as f:
-        _print_tree(f)
 
 
 def extract_tephra2_wind(multiphase_config_file, netcdf_file):
@@ -233,14 +201,16 @@ def extract_tephra2_wind(multiphase_config_file, netcdf_file):
 def create_tephra2_config_file(params, param_names, filename):
     with open(filename, "w") as f:
         for n, p in zip(param_names, params):
-            # For some reason these come in here with weird whitespaces
-            n = re.sub("\s+", "", n)
-            p = re.sub("\s+", "", p)
-            f.write(f"{n.strip()}\t{p.strip()}\n")
+            f.write(f"{n}\t{p}\n")
 
 
 def run_tephra2(
-    tephra2_path, config_file_path, grid_file_path, wind_file_path, output_file_path
+    tephra2_path,
+    config_file_path,
+    grid_file_path,
+    wind_file_path,
+    output_file_path,
+    phase_tuple,
 ):
     """
     Executes tephra2 with the given configuration, grid, and wind files, and saves the
@@ -271,7 +241,7 @@ def run_tephra2(
     except subprocess.CalledProcessError as e:
         logging.critical(f'Tephra2 failed with error code {e.returncode}:"{e.output}"')
         sys.exit(1)
-    return result
+    return result, phase_tuple
 
 
 def main():
@@ -344,17 +314,8 @@ def main():
     logging.info(f"Wind Extractor initialised in {elapsed_time:.2f} seconds")
 
     # Read in multiphase configuration file
-    with open(args.multiphase_config_file) as f:
-        multiphase_config = f.readlines()
-
-    _, _, _, *param_names = multiphase_config[0].split(",")
-
-    input_list = []
-    wind_file_list = []
-    config_file_list = []
-    dates_list = []
-    phase_list = []
-    phase_type_list = []
+    df_multiphase = pd.read_csv(args.multiphase_config_file)
+    param_names = df_multiphase.columns.values[3:]
 
     temp_dir = ".temp"
     try:
@@ -362,103 +323,119 @@ def main():
     except FileExistsError:
         shutil.rmtree(temp_dir)
         os.mkdir(temp_dir)
+    phase_list = np.sort(list(set(df_multiphase["PHASE"])))
 
-    # Loop over lines in multiphase configuration file
-    for i, line in enumerate(multiphase_config[1:]):
-        # Parse line
-        date, phase, phase_type, *tephra2_params = line.split(",")
+    def process_tephra2_results(
+        results, grid_file=args.grid_file, out_file=args.out_file
+    ):
+        res_df_list = []
+        config_file_list = []
+        wind_file_list = []
+        for result in results:
+            res, phase_tuple = result
+            output = res.stdout.decode().splitlines()
+            output = [line.replace("#", "").split(" ") for line in output]
+            res_df = pd.DataFrame(
+                output[1:],
+                columns=output[0],
+            )
+            res_df.replace("", np.nan)
+            res_df_list += [res_df]
+            config_file_list += [res.args[1]]
+            wind_file_list += [res.args[3]]
 
-        dates_list += [date]
-        phase_list += [phase]
-        phase_type_list += [phase_type]
+        export_to_hdf(
+            res_df_list,
+            config_file_list,
+            wind_file_list,
+            grid_file,
+            out_file,
+            phase_tuple,
+        )
 
-        # Check if wind file already exists.
-        wind_filename = os.path.join(temp_dir, f"wind_{date}.dat")
-        if not os.path.exists(wind_filename):
-            # Extract wind data
-            logging.info(f"Extracting wind data for date {date}")
+    with mp.Pool(processes=8) as pool:
+        # For each phase in the phase list
+        for phase in phase_list:
+            input_list = []
+            wind_file_list = []
+            config_file_list = []
+            dates_list = []
+
+            # For each paroxysm in the phase
+            for i, df_phase in df_multiphase[
+                df_multiphase["PHASE"] == phase
+            ].iterrows():
+                phase_name = df_phase["PHASE_TYPE"]
+                tephra2_params = df_phase[param_names].values
+                date = df_phase["DATE"]
+                dates_list += [date]
+
+                # Check if wind file already exists.
+                wind_filename = os.path.join(temp_dir, f"wind_{date}.dat")
+                if not os.path.exists(wind_filename):
+                    # Extract wind data
+                    logging.info(f"Extracting wind data for date {date}")
+                    start_time = time.time()
+                    wind_df = wind_extractor.extract_tephra2_wind(date)[0]
+                    elapsed_time = time.time() - start_time
+                    logging.debug(f"Wind data extracted in {elapsed_time:.2f} seconds")
+
+                    # Write wind data to wind file
+                    logging.debug(f"Writing wind data to file {wind_filename}")
+                    start_time = time.time()
+                    wind_df.to_csv(wind_filename, sep=" ", header=False, index=False)
+                    elapsed_time = time.time() - start_time
+                    logging.debug(
+                        f"Wind data written to file in {elapsed_time:.2f} seconds"
+                    )
+                wind_file_list += [wind_filename]
+
+                # Create Tephra2 configuration file
+                tephra2_filename = os.path.join(
+                    temp_dir, f"config_file{i:06d}_phase{int(phase):03d}_{date}.dat"
+                )
+                logging.debug(f"Creating Tephra2 configuration file {tephra2_filename}")
+                start_time = time.time()
+                create_tephra2_config_file(
+                    tephra2_params, param_names, tephra2_filename
+                )
+                elapsed_time = time.time() - start_time
+                logging.debug(
+                    "Tephra2 configuration written to file in"
+                    f" {elapsed_time:.2f} seconds"
+                )
+                output_filename = os.path.join(
+                    temp_dir, f"output{i:06d}_phase{int(phase):03d}_{date}.dat"
+                )
+
+                config_file_list += [tephra2_filename]
+
+                param_tuple = (
+                    args.tephra2_path,
+                    tephra2_filename,
+                    args.grid_file,
+                    wind_filename,
+                    output_filename,
+                    (phase, phase_name),
+                )
+                input_list += [param_tuple]
+
+                elapsed_time = time.time() - start_time
+
+            def custom_callback(result):
+                return process_tephra2_results(result)
+
             start_time = time.time()
-            wind_df = wind_extractor.extract_tephra2_wind(date)[0]
+            _ = pool.starmap_async(run_tephra2, input_list, callback=custom_callback)
+
             elapsed_time = time.time() - start_time
-            logging.debug(f"Wind data extracted in {elapsed_time:.2f} seconds")
-
-            # Write wind data to wind file
-            logging.debug(f"Writing wind data to file {wind_filename}")
-            start_time = time.time()
-            wind_df.to_csv(wind_filename, sep=" ", header=False, index=False)
-            elapsed_time = time.time() - start_time
-            logging.debug(f"Wind data written to file in {elapsed_time:.2f} seconds")
-        wind_file_list += [wind_filename]
-
-        # Create Tephra2 configuration file
-        tephra2_filename = os.path.join(
-            temp_dir, f"config_file{i:06d}_phase{int(phase):03d}_{date}.dat"
-        )
-        logging.debug(f"Creating Tephra2 configuration file {tephra2_filename}")
-        start_time = time.time()
-        create_tephra2_config_file(tephra2_params, param_names, tephra2_filename)
-        elapsed_time = time.time() - start_time
-        logging.debug(
-            f"Tephra2 configuration written to file in {elapsed_time:.2f} seconds"
-        )
-
-        output_filename = os.path.join(
-            temp_dir, f"output{i:06d}_phase{int(phase):03d}_{date}.dat"
-        )
-
-        config_file_list += [tephra2_filename]
-
-        # I have to do it like this to work with starmap, but to save space I'm using
-        # links in the output HDF file. I am using more memory this way though.
-        param_tuple = (
-            args.tephra2_path,
-            tephra2_filename,
-            args.grid_file,
-            wind_filename,
-            output_filename,
-        )
-        input_list += [param_tuple]
+        pool.close()
+        pool.join()
 
     total_elapsed_time = time.time() - total_start_time
-    num_processes = mp.cpu_count()  # todo use OMP_NUM_THREADS env variable.
     logging.info("DONE")
-    logging.info(
-        f"{i} Tephra2 configurations prepared in a total of"
-        f" {total_elapsed_time:.2f} seconds."
-        f" Commencing Tephra2 executions on {num_processes} cores..."
-    )
-
-    pool = mp.Pool(processes=num_processes)
-
-    start_time = time.time()
-    results = pool.starmap(run_tephra2, input_list)
-    elapsed_time = time.time() - start_time
-    logging.info(f"Success. Tephra2 runs executed in {elapsed_time:.2f} seconds")
-
-    res_df_list = []
-    for result in results:
-        output = result.stdout.decode().splitlines()
-
-        output = [line.replace("#", "").split(" ") for line in output]
-        res_df = pd.DataFrame(
-            output[1:],
-            columns=output[0],
-        )
-        res_df.replace("", np.nan)
-        res_df_list += [res_df]
-
-    export_to_hdf(
-        res_df_list,
-        config_file_list,
-        wind_file_list,
-        args.grid_file,
-        args.out_file,
-        zip(phase_list, phase_type_list),
-    )
 
     shutil.rmtree(temp_dir)
-
-    generate_tree_hdf5(args.out_file)
 
 
 if __name__ == "__main__":

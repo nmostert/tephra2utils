@@ -500,7 +500,45 @@ In our case, the file has the following structure:
 └── grid                        # grid points dataset
 ```
 
-The data structure can be accessed using a tool such as HDFView, or using API bindings available in many programming languages. 
 
+## HDF5 Tree Generator
 
+This utility generates a tree-like representation of the HDF5 file structure.
+
+### Usage
+
+1. Install the required dependencies:
+   ```shell
+   pip install h5py numpy
+   ```
+
+2. Run the script with the desired options:
+   ```shell
+   python script.py path/to/hdf5_file --display-metadata --truncate-large-folders
+   ```
+
+### Options
+
+- `path/to/hdf5_file`: Path to the HDF5 file.
+- `--display-metadata`: Display metadata information (optional).
+- `--truncate-large-folders`: Truncate large folders after a certain amount of entries (optional).
+
+### Example
+
+To generate the tree structure of an HDF5 file named `data.h5`, including metadata information and truncating large folders, run the following command:
+```shell
+python script.py data --display-metadata --truncate-large-folders
+```
+
+This will output the tree-like structure of the HDF5 file:
+
+```
+/path/to/hdf5_file.h5
+┗━━ group_name
+   ┣━━ dataset_name [10, 10] [ATTRS]
+   ┣━━ subgroup_name
+   ┃  ┗━━ nested_dataset [5, 5]
+   ┗━━ large_folder
+      ┗━━ ... (truncated)
+```
 
