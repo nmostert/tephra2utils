@@ -13,6 +13,7 @@ def generate_tree_hdf5(hdf5_path, display_metadata=False, truncate_large_folders
         truncate_large_folders (bool): Flag to truncate large folders.
 
     """
+
     def _print_tree(node, indent="", last=True):
         if isinstance(node, h5py.File):
             name = node.filename
@@ -46,7 +47,7 @@ def generate_tree_hdf5(hdf5_path, display_metadata=False, truncate_large_folders
                             else f"├─{ref_char}"
                         )
                         print(
-                            f"{indent}{'┃' if not last else ''}   {connector} {key}:"
+                            f"{indent}{'┃' if not last else ' '}   {connector} {key}:"
                             f" {value}"
                         )
             else:
@@ -72,21 +73,26 @@ def generate_tree_hdf5(hdf5_path, display_metadata=False, truncate_large_folders
                             else f"├─{ref_char}"
                         )
                         print(
-                            f"{indent}{'┃' if not last else ''}   {connector} {key}:"
+                            f"{indent}{'┃' if not last else ' '}    {connector} {key}:"
                             f" {value}"
                         )
-                children = [_ for _ in node.values()]
-                if truncate_large_folders and len(children) > 10:
-                    children = children[:10]
-                    print(f"{indent}{'┃' if not last else ''}   ... (truncated)")
+                full_children = [_ for _ in node.values()]
+                if truncate_large_folders and len(full_children) > 5:
+                    children = full_children[:10]
                 for i, child in enumerate(children):
                     _print_tree(
                         child,
                         indent=(indent + ("    " if last else "┃   ")),
                         last=(i == len(children) - 1),
                     )
+                if truncate_large_folders and len(full_children) > 5:
+                    remaining = len(full_children) - 5
+                    print(
+                        f"{indent}{'┃' if not last else ' '}   ... ({remaining} entries"
+                        " truncated)"
+                    )
 
-    with h5py.File(f"{hdf5_path}.h5", "r") as f:
+    with h5py.File(f"{hdf5_path}", "r") as f:
         _print_tree(f)
 
 
@@ -114,4 +120,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
