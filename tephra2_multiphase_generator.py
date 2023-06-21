@@ -16,7 +16,7 @@ def read_multiphase_config(filename):
 
 
 def exp_per_day(loc, scale):
-    return 10 ** (norm.rvs(loc=loc, scale=scale))
+    return np.exp(norm.rvs(loc=loc, scale=scale))
 
 
 def intexp_repose(k, nexplosions_per_day, a, b):
@@ -60,17 +60,18 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
         phase_type = row["Phase Type"]
 
         phase_conf_filename = f"{phase_config_dir}{phase_type}_template.conf"
-        try:
-            phase_conf = common_utils.read_config_file(phase_conf_filename)
-            if len(columns) == 0:
-                columns = ["DATE"]
-                columns += phase_conf.keys()
-        except FileNotFoundError:
-            print(
-                f"ERROR: Phase configuration template file '{phase_conf_filename}' not"
-                " found."
-            )
-            sys.exit(0)
+        if phase_type != "Eff":  # Effusive eruptions don't have config files
+            try:
+                phase_conf = common_utils.read_config_file(phase_conf_filename)
+                if len(columns) == 0:
+                    columns = ["DATE"]
+                    columns += phase_conf.keys()
+            except FileNotFoundError:
+                print(
+                    f"ERROR: Phase configuration template file '{phase_conf_filename}'"
+                    " not found."
+                )
+                sys.exit(0)
         dur = row["Phase Duration"]
         qui = row["Following Quiescence"]
         tot_dur = config.iloc[0:i]["Phase Duration"].sum()
@@ -92,7 +93,7 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
             "\n..."
         )
         bangs = 0
-        if phase_type == "IntExp":
+        if (phase_type == "IntExp") or (phase_type == "Eff+Exp"):
             nexpday = exp_per_day(-0.4772, 1.92)  # Hardcoded K
 
             phase_day = phase_start
@@ -117,7 +118,7 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
                 )
                 phase_day += dt.timedelta(hours=float(repose_hours))
 
-        elif phase_type == "Cont":
+        elif phase_type == "CtsExp":
             phase_day = phase_start
 
             while phase_day < phase_end:
@@ -141,41 +142,38 @@ def generate_phase_runs(config, phase_config_dir, start_date, wind_file):
                 phase_day += dt.timedelta(days=float(repose))
 
         else:
-            phase_day = phase_start
+            if phase_type != "Eff":  # Effusive eruptions don't do anything
+                phase_day = phase_start
 
-            phase_length = phase_end - phase_start
+                phase_length = phase_end - phase_start
 
-            phase_days = phase_length.days
+                phase_days = phase_length.days
+                base_run = common_utils.generate_runs(phase_conf)
+                while phase_day < phase_end:
+                    bangs += 1
+                    run_df = base_run.copy()
+                    run_df.insert(0, "PHASE_TYPE", [phase_type])
+                    run_df.insert(0, "PHASE", [i])
+                    run_df.insert(0, "DATE", [phase_day.strftime("%Y-%m-%d")])
 
-            base_run = common_utils.generate_runs(phase_conf)
-            while phase_day < phase_end:
-                bangs += 1
-                run_df = base_run.copy()
-                run_df.insert(0, "PHASE_TYPE", [phase_type])
-                run_df.insert(0, "PHASE", [i])
-                run_df.insert(0, "DATE", [phase_day.strftime("%Y-%m-%d")])
-
-                run_df.loc[0, "ERUPTION_MASS"] = run_df.ERUPTION_MASS[0] / phase_days
-                event_list += [run_df]
-                days_in_phase = (phase_day - phase_start).days
-                logging.debug(
-                    "BANG"
-                    f"\tphase={run_df.PHASE[0]}"
-                    f"\ttype={run_df.PHASE_TYPE[0]}"
-                    f"\tday={days_in_phase}/{dur}"
-                    f"\tdate={run_df.DATE[0]}"
-                    f"\theight={run_df.PLUME_HEIGHT[0]/1000:.2f}km"
-                    f"\tmass={run_df.ERUPTION_MASS[0]:.2e}kg"
-                )
-                phase_day += dt.timedelta(days=1)
-        logging.info(
-            f"\nDONE. Generated {bangs} bangs over {dur} days."
-            "\n"
-        )
+                    run_df.loc[0, "ERUPTION_MASS"] = (
+                        run_df.ERUPTION_MASS[0] / phase_days
+                    )
+                    event_list += [run_df]
+                    days_in_phase = (phase_day - phase_start).days
+                    logging.debug(
+                        "BANG"
+                        f"\tphase={run_df.PHASE[0]}"
+                        f"\ttype={run_df.PHASE_TYPE[0]}"
+                        f"\tday={days_in_phase}/{dur}"
+                        f"\tdate={run_df.DATE[0]}"
+                        f"\theight={run_df.PLUME_HEIGHT[0]/1000:.2f}km"
+                        f"\tmass={run_df.ERUPTION_MASS[0]:.2e}kg"
+                    )
+                    phase_day += dt.timedelta(days=1)
+        logging.info(f"\nDONE. Generated {bangs} bangs over {dur} days.\n")
         if qui != "END":
-            logging.info(
-                f"\n........QUIESCENT for {qui} days........"
-            )
+            logging.info(f"\n........QUIESCENT for {qui} days........")
     logging.info("Preparing dataframe for export...")
     ret_df = pd.concat(event_list, axis=0)
     logging.info("DONE.")

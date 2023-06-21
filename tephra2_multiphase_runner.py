@@ -129,12 +129,11 @@ def export_to_hdf(
             config_dset.attrs.create("phase type", phases[1])
             config_dset.attrs["date"] = date
             config_dset.attrs["wind"] = wind_ref
-            os.remove(config_file)
             config_ref = config_dset.ref
             config_refs_in_phase += [config_ref]
             logging.debug(f"Aggregating data for Sim {i} on {date}")
             for col in output_df:
-                output_df[col] = pd.to_numeric(output_df[col], errors="raise")
+                output_df[col] = pd.to_numeric(output_df[col], errors="coerce")
             if agg_df is None:
                 agg_df = output_df
             else:
@@ -156,6 +155,7 @@ def export_to_hdf(
 
                 # aggregate mass in mass/area column
                 agg_df["Kg/m^2"] = agg_df["Kg/m^2"].add(output_df["Kg/m^2"])
+            os.remove(config_file)
 
         agg_rec_arr = agg_df.to_records(index=False)
 
