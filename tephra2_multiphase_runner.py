@@ -192,7 +192,8 @@ def extract_tephra2_wind(multiphase_config_file, netcdf_file):
 
             # Save wind data to temporary file
             wind_file = os.path.join(wind_dir, f"{date.strftime('%s')}.csv")
-            wind_data.to_csv(wind_file, index=False)
+            #SRM - reverse the file here
+            wind_data.iloc[::-1].to_csv(wind_file, index=False)
             wind_files.append(wind_file)
 
     return wind_files
@@ -353,7 +354,7 @@ def main():
             phase_tuple,
         )
 
-    with mp.Pool(processes=8) as pool:
+    with mp.Pool(processes=24) as pool:
         # For each phase in the phase list
         for phase in phase_list:
             input_list = []
@@ -383,7 +384,8 @@ def main():
                     # Write wind data to wind file
                     logging.debug(f"Writing wind data to file {wind_filename}")
                     start_time = time.time()
-                    wind_df.to_csv(wind_filename, sep=" ", header=False, index=False)
+                    # SRM changed to reverse wind here
+                    wind_df.iloc[::-1].to_csv(wind_filename, sep=" ", header=False, index=False)
                     elapsed_time = time.time() - start_time
                     logging.debug(
                         f"Wind data written to file in {elapsed_time:.2f} seconds"
