@@ -22,9 +22,9 @@ def generate_sample_grid(
     :return: A list of coordinate tuples.
     """
     grid = []
-    for northing in range(int(min_northing), int(max_northing), int(spacing)):
-        for easting in range(int(min_easting), int(max_easting), int(spacing)):
-            if northing != ventNorth and easting != ventEast:
+    for northing in range(int(min_northing), int(max_northing+1), int(spacing)):
+        for easting in range(int(min_easting), int(max_easting+1), int(spacing)):
+            if not (northing == ventNorth and easting == ventEast):
                 grid.append((northing, easting, 1))
     #Now add in the other points at 1 km
     grid.append((ventNorth+1000,ventEast,1))
@@ -40,7 +40,7 @@ def generate_sample_grid(
     grid.append((ventNorth+2000,ventEast+2000,1))
     grid.append((ventNorth-2000,ventEast-2000,1))
     grid.append((ventNorth+2000,ventEast-2000,1))
-    grid.append((ventNorth-2000,ventEast-2000,1))
+    grid.append((ventNorth-2000,ventEast+2000,1))
     return grid
 
 
@@ -57,30 +57,26 @@ def main():
             'vent_north',
             type=float,
             help='The northing of the vent')
-    #parser.add_argument(
-    #        'min_easting',
-    #        type=float,
-    #        help='The minimum easting value of the rectangle.')
-    #parser.add_argument(
-    #        'max_easting',
-    #        type=float,
-    #        help='The maximum easting value of the rectangle.')
-    #parser.add_argument(
-    #        'min_northing',
-    #        type=float,
-    #        help='The minimum northing value of the rectangle.')
-    #parser.add_argument(
-    #        'max_northing',
-    #        type=float,
-    #        help='The maximum northing value of the rectangle.')
+    parser.add_argument(
+            'dist_east',
+            type=float,
+            help='The distance east of the vent.')
+    parser.add_argument(
+            'dist_west',
+            type=float,
+            help='The distance west the vent.')
+    parser.add_argument(
+            'dist_north',
+            type=float,
+            help='The distance north the vent.')
+    parser.add_argument(
+            'dist_south',
+            type=float,
+            help='The distance south of the vent.')
     parser.add_argument(
             'spacing',
             type=float,
             help='The regular spacing distance between points in the grid.')
-    partser.add_argument(
-            'distance',
-            type=float,
-            help='The maximum distance for the grid.')
     parser.add_argument(
             'output_file',
             type=str,
@@ -89,11 +85,11 @@ def main():
             help='The name of the output file.')
 
     args = parser.parse_args()
-    min_easting = args.ventEast - args.distance
-    max_easting = args.ventEast + args.distance
-    min_northing = args.ventNorth - args.distance
-    max_northing = args.ventNorth + args.distance
-    grid = generate_utm_grid(
+    min_easting = args.vent_east - args.dist_west
+    max_easting = args.vent_east + args.dist_east
+    min_northing = args.vent_north - args.dist_south
+    max_northing = args.vent_north + args.dist_north
+    grid = generate_sample_grid(
             args.vent_east,
             args.vent_north,
             min_easting,
