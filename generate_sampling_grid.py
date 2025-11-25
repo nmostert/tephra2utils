@@ -41,6 +41,11 @@ def generate_sample_grid(
     grid.append((ventNorth-2000,ventEast-2000,1))
     grid.append((ventNorth+2000,ventEast-2000,1))
     grid.append((ventNorth-2000,ventEast+2000,1))
+    #Now at 4 km
+    grid.append((ventNorth+5000,ventEast+5000,1))
+    grid.append((ventNorth-5000,ventEast-5000,1))
+    grid.append((ventNorth+5000,ventEast-5000,1))
+    grid.append((ventNorth-5000,ventEast+5000,1))
     return grid
 
 

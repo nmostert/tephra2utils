@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from scipy.stats import lognorm, fisk, norm
+from scipy.stats import lognorm, fisk, norm, weibull_min
 
 
 def unif(a, b):
@@ -43,3 +43,16 @@ def mastin_mass(
     total_mass = (V*1e9)*magma_density
 
     return total_mass
+
+#Wiebull function for column height - this is based on the height being 1-exp(-(beta*h)**alpha)
+def weib_col_height(q, shape, scale, shift):
+    #Using weibull_min, shape is c, scale is 1/scale, and loc is shift
+    return weibull_min.ppf(q, c = shape, scale = 1/scale, loc = shift)
+
+# Define volume/mass
+def eruptedMass(ht, sd):
+    #Volume is Mastin volume plus 2 times a normal distribution
+    # with mean 0 and sd of 1, so we take percentiles around it.
+    #   -1.5, -0.75, 0, 0.75, 1.5
+    vol = 2.6*np.exp(0.065*ht - 1.69) * np.exp(2*sd)
+    return vol
