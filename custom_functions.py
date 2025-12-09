@@ -55,4 +55,11 @@ def eruptedMass(ht, sd):
     # with mean 0 and sd of 1, so we take percentiles around it.
     #   -1.5, -0.75, 0, 0.75, 1.5
     vol = 2.6*np.exp(0.065*ht - 1.69) * np.exp(2*sd)
-    return vol
+
+   #Density of DRE magma with no voids or bubbles
+    magma_density = 2500
+
+    total_mass = (vol*1e9)*magma_density
+
+    return total_mass
+   

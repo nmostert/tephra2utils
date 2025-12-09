@@ -3,6 +3,7 @@ import argparse
 import subprocess
 from datetime import datetime
 from netcdf_wind_extractor import NetCDFWindExtractor
+from pickle_wind_extractor import PickleWindExtractor
 import logging
 import time
 import sys
@@ -30,8 +31,8 @@ def validate_input_files(multiphase_config_file, netcdf_file, grid_file, tephra2
     # Check if files are valid
     if not multiphase_config_file.endswith(".csv"):
         raise ValueError("Multiphase config file must be a CSV file.")
-    if not netcdf_file.endswith(".nc"):
-        raise ValueError("NetCDF file must be a NetCDF file.")
+    if not netcdf_file.endswith((".nc", ".pk")):
+        raise ValueError("File must be either a NetCDF file (.nc) or pickle (.pk).")
     if not grid_file.endswith(".csv"):
         raise ValueError("Grid file must be a CSV file.")
     if not os.access(tephra2_path, os.X_OK):
@@ -177,8 +178,11 @@ def extract_tephra2_wind(multiphase_config_file, netcdf_file):
     os.makedirs(wind_dir, exist_ok=True)
     wind_files = []
 
-    # Create NetCDFWindExtractor object
-    netcdf_wind_extractor = NetCDFWindExtractor(netcdf_file)
+    if netcdf_file.endswith(".nc"):
+        # Create NetCDFWindExtractor object
+        wind_extractor = NetCDFWindExtractor(netcdf_file)
+    else:
+        wind_extractor = PickleWindExtractor(netcdf_file)
 
     # Loop through multiphase configuration file
     with open(multiphase_config_file, "r") as config_file:
@@ -188,7 +192,7 @@ def extract_tephra2_wind(multiphase_config_file, netcdf_file):
             date = datetime.strptime(line.split(",")[0], "%Y-%m-%d %H:%M:%S")
 
             # Extract wind data
-            wind_data = netcdf_wind_extractor.extract_tephra2_wind(date)
+            wind_data = wind_extractor.extract_tephra2_wind(date)
 
             # Save wind data to temporary file
             wind_file = os.path.join(wind_dir, f"{date.strftime('%s')}.csv")
@@ -257,7 +261,7 @@ def main():
             " using the script tephra2_multiphase_generator.py"
         ),
     )
-    parser.add_argument("netcdf_file", help="NetCDF file containing wind data")
+    parser.add_argument("netcdf_file", help="Pickle or NetCDF file containing wind data")
     parser.add_argument(
         "grid_file",
         help=(
@@ -310,7 +314,13 @@ def main():
     # Create NetCDFWindExtractor object
     logging.info("Initialising wind extractor (This takes a while...)")
     start_time = time.time()
-    wind_extractor = NetCDFWindExtractor(args.netcdf_file)
+
+    if args.netcdf_file.endswith(".nc"):
+        # Create NetCDFWindExtractor object
+        wind_extractor = NetCDFWindExtractor(args.netcdf_file)
+    else:
+        wind_extractor = PickleWindExtractor(args.netcdf_file)
+    #wind_extractor = NetCDFWindExtractor(args.netcdf_file)
     elapsed_time = time.time() - start_time
     logging.info(f"Wind Extractor initialised in {elapsed_time:.2f} seconds")
 
